@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SuitShop Pro — Management System</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <aside id="sidebar">
+    <div class="logo">
+      <div class="logo-icon">👔</div>
+      <div>
+        <div class="logo-text">S.S.Creation</div>
+        <div class="logo-sub">Management System</div>
+      </div>
+    </div>
+    <nav>
+      <div class="nav-section">Main</div>
+      <button class="nav-item active" data-page="dashboard"><span>📊</span>Dashboard</button>
+      <button class="nav-item" data-page="inventory"><span>📦</span>Inventory</button>
+      <button class="nav-item" data-page="suits"><span>🧥</span>Suit Catalog</button>
+      <div class="nav-section">Sales & Reports</div>
+      <button class="nav-item" data-page="sales"><span>💰</span>Sales Tracker</button>
+      <button class="nav-item" data-page="outdated"><span>🕰️</span>Outdated Suits</button>
+      <div class="nav-section">Config</div>
+      <button class="nav-item" data-page="categories"><span>🗂️</span>Categories</button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="avatar">A</div>
+      <div>
+        <div class="name">Anil</div>
+        <div class="role">Shop Manager</div>
+      </div>
+    </div>
+  </aside>
+
+  <main id="main">
+    <header class="topbar">
+      <div>
+        <h1 id="pageTitle">Dashboard</h1>
+        <p id="pageSub">Welcome back, Admin 👋</p>
+      </div>
+      <div class="topbar-actions">
+        <label class="search-bar">
+          <span>🔍</span>
+          <input id="globalSearch" type="search" placeholder="Search suits..." />
+        </label>
+        <button class="btn btn-primary" id="addSuitBtn">➕ Add Suit</button>
+      </div>
+    </header>
+
+    <section class="content">
+      <div class="page active" id="page-dashboard">
+        <div class="stats-grid">
+          <article class="stat-card blue"><span class="stat-icon">📦</span><p>Total In Stock</p><strong id="stat-stock">0</strong><small id="delta-stock">0 units remaining</small></article>
+          <article class="stat-card pink"><span class="stat-icon">💳</span><p>Total Sold</p><strong id="stat-sold">0</strong><small id="delta-sold">0 total sales</small></article>
+          <article class="stat-card green"><span class="stat-icon">🧥</span><p>Suit Models</p><strong id="stat-models">0</strong><small>Active listings</small></article>
+          <article class="stat-card red"><span class="stat-icon">⚠️</span><p>Outdated / Old</p><strong id="stat-outdated">0</strong><small>Need clearance</small></article>
+        </div>
+
+        <div class="charts-row">
+          <article class="panel">
+            <h2>📈 Sales by Category</h2>
+            <div class="bar-chart" id="salesChart"></div>
+          </article>
+          <article class="panel">
+            <h2>📦 Stock Distribution</h2>
+            <div class="donut-wrap">
+              <div class="donut" id="stockDonut"></div>
+              <div class="legend" id="stockLegend"></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="charts-row">
+          <article class="panel">
+            <h2>🏆 Top Selling Models</h2>
+            <div class="progress-wrap" id="topSellers"></div>
+          </article>
+          <article class="panel">
+            <h2>📊 Stock Health by Category</h2>
+            <div class="progress-wrap" id="stockHealth"></div>
+          </article>
+        </div>
+      </div>
+
+      <div class="page" id="page-inventory">
+        <div class="filter-row">
+          <button class="filter-chip active" data-filter="all">All</button>
+          <button class="filter-chip" data-filter="active">✅ Active</button>
+          <button class="filter-chip" data-filter="low">⚠️ Low Stock</button>
+          <button class="filter-chip" data-filter="outdated">🔴 Outdated</button>
+        </div>
+        <article class="table-card">
+          <div class="table-header">
+            <h2>📦 Inventory List</h2>
+            <button class="btn btn-primary btn-sm" id="addSuitBtnInv">➕ Add Suit</button>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>ID</th><th>Photos</th><th>Suit Name</th><th>Category</th><th>Sizes</th><th>Stock</th><th>Sold</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody id="inventoryTableBody"></tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+
+      <div class="page" id="page-suits">
+        <div class="tabs">
+          <button class="tab-btn active" data-view="grid">🔲 Grid View</button>
+          <button class="tab-btn" data-view="list">📋 List View</button>
+        </div>
+        <div id="suitCatalogGrid" class="suit-cards-grid"></div>
+        <div id="suitCatalogList" class="table-card hidden">
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>ID</th><th>Photos</th><th>Name</th><th>Category</th><th>Color</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead>
+              <tbody id="catalogListBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="page" id="page-sales">
+        <div class="stats-grid three">
+          <article class="stat-card pink"><span class="stat-icon">💰</span><p>Total Revenue</p><strong id="stat-revenue">$0</strong><small>From all sales</small></article>
+          <article class="stat-card blue"><span class="stat-icon">🛒</span><p>Units Sold</p><strong id="stat-units">0</strong><small>Total units</small></article>
+          <article class="stat-card green"><span class="stat-icon">📅</span><p>Avg. Price</p><strong id="stat-avgprice">$0</strong><small>Per unit</small></article>
+        </div>
+        <article class="panel sales-panel">
+          <h2>📉 Sales Performance (Monthly)</h2>
+          <div class="line-chart" id="salesLineChart"></div>
+        </article>
+        <article class="table-card">
+          <div class="table-header"><h2>💳 Sales Records</h2></div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Suit</th><th>Category</th><th>Units Sold</th><th>Price Each</th><th>Revenue</th><th>% of Total</th></tr></thead>
+              <tbody id="salesTableBody"></tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+
+      <div class="page" id="page-outdated">
+        <article class="table-card">
+          <div class="table-header">
+            <h2>🕰️ Outdated / Old Suits</h2>
+            <span>Suits marked as outdated or discontinued</span>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>ID</th><th>Photo</th><th>Suit Name</th><th>Category</th><th>Added Year</th><th>Remaining Stock</th><th>Price</th><th>Action</th></tr></thead>
+              <tbody id="outdatedTableBody"></tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+
+      <div class="page" id="page-categories">
+        <div class="suit-cards-grid" id="categoryCards"></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-overlay" id="suitModal">
+    <div class="modal">
+      <h2 id="modalTitle">Add New Suit</h2>
+      <p id="modalSub">Fill in the details below to add a suit to inventory</p>
+      <form id="suitForm">
+        <div class="form-grid">
+          <label class="full">Suit Name<input type="text" id="f-name" required placeholder="Classic Black Tuxedo" /></label>
+          <label>Category<select id="f-category"><option>Formal</option><option>Business</option><option>Wedding</option><option>Casual</option><option>Slim Fit</option><option>Vintage</option><option>Sports</option><option>Custom</option></select></label>
+          <label>Color<input type="text" id="f-color" placeholder="Navy Blue" /></label>
+          <label>Sizes Available<input type="text" id="f-sizes" placeholder="S, M, L, XL" /></label>
+          <label>Price ($)<input type="number" id="f-price" min="0" required /></label>
+          <label>Stock Quantity<input type="number" id="f-stock" min="0" required /></label>
+          <label>Units Sold<input type="number" id="f-sold" min="0" /></label>
+          <label>Year Designed<input type="number" id="f-year" min="1900" max="2099" /></label>
+          <label class="full">Status<select id="f-status"><option value="active">✅ Active</option><option value="low">⚠️ Low Stock</option><option value="outdated">🔴 Outdated</option></select></label>
+          <label class="full">Description<textarea id="f-desc" placeholder="Brief description of this suit..."></textarea></label>
+          <div class="image-upload full">
+            <div class="image-upload-title">📸 Suit Photos (Upload up to 4 Images)</div>
+            <div class="image-grid" id="imageGrid">
+              <label class="image-slot" id="slot0">
+                <input type="file" accept="image/*" data-image-slot="0" />
+                <span class="slot-placeholder"><b>📷</b>Main Photo</span>
+                <button type="button" class="remove-image" data-remove-slot="0">×</button>
+              </label>
+              <label class="image-slot" id="slot1">
+                <input type="file" accept="image/*" data-image-slot="1" />
+                <span class="slot-placeholder"><b>📷</b>Front View</span>
+                <button type="button" class="remove-image" data-remove-slot="1">×</button>
+              </label>
+              <label class="image-slot" id="slot2">
+                <input type="file" accept="image/*" data-image-slot="2" />
+                <span class="slot-placeholder"><b>📷</b>Back View</span>
+                <button type="button" class="remove-image" data-remove-slot="2">×</button>
+              </label>
+              <label class="image-slot" id="slot3">
+                <input type="file" accept="image/*" data-image-slot="3" />
+                <span class="slot-placeholder"><b>📷</b>Detail Shot</span>
+                <button type="button" class="remove-image" data-remove-slot="3">×</button>
+              </label>
+            </div>
+            <p>Click any box to upload JPG, PNG, or WEBP photos.</p>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="closeModal">Cancel</button>
+          <button type="submit" class="btn btn-primary">💾 Save Suit</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="app.js"></script>
+  
+</body>
+</html>
