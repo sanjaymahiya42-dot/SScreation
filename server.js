@@ -1,12 +1,19 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const { MongoClient } = require("mongodb");
+
+loadLocalEnv();
 
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, "public");
-const DATA_DIR = path.join(ROOT, "data");
-const DATA_FILE = path.join(DATA_DIR, "suits.json");
+const DB_NAME = process.env.MONGODB_DB || process.env.DB_NAME || "suitshop_pro";
+const COLLECTION_NAME = process.env.MONGODB_COLLECTION || "suits";
+const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URI || process.env.DATABASE_URL || process.env.MONGO_URL;
+
+let mongoClient;
+let suitsCollection;
 
 const defaultSuits = [
   { id: "S001", name: "Classic Black Tuxedo", category: "Formal", color: "Black", sizes: "M, L, XL", price: 299, stock: 24, sold: 88, year: 2022, status: "active", desc: "Elegant all-occasion black tuxedo.", images: [] },
@@ -33,20 +40,61 @@ const mimeTypes = {
   ".svg": "image/svg+xml"
 };
 
-function ensureDataFile() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(defaultSuits, null, 2));
+function loadLocalEnv() {
+  const envPath = path.join(__dirname, ".env");
+  if (!fs.existsSync(envPath)) return;
+
+  const content = fs.readFileSync(envPath, "utf8").trim();
+  if (!content) return;
+
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+
+    const eqIndex = trimmed.indexOf("=");
+    if (eqIndex === -1) {
+      if (trimmed.startsWith("mongodb://") || trimmed.startsWith("mongodb+srv://")) {
+        process.env.MONGODB_URI ||= trimmed;
+      }
+      continue;
+    }
+
+    const key = trimmed.slice(0, eqIndex).trim();
+    const value = trimmed.slice(eqIndex + 1).trim().replace(/^["']|["']$/g, "");
+    process.env[key] ||= value;
   }
 }
 
-function readSuits() {
-  ensureDataFile();
-  return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+async function connectDatabase() {
+  if (!MONGODB_URI) {
+    throw new Error("MONGODB_URI is missing. Add it in Render environment variables or .env.");
+  }
+
+  mongoClient = new MongoClient(MONGODB_URI);
+  await mongoClient.connect();
+  suitsCollection = mongoClient.db(DB_NAME).collection(COLLECTION_NAME);
+  await suitsCollection.createIndex({ id: 1 }, { unique: true });
+
+  const count = await suitsCollection.countDocuments();
+  if (count === 0) {
+    await suitsCollection.insertMany(defaultSuits.map(suit => ({ ...suit })));
+    console.log("Seeded default suits into MongoDB.");
+  }
 }
 
-function writeSuits(suits) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(suits, null, 2));
+function stripMongoId(suit) {
+  if (!suit) return suit;
+  const { _id, ...rest } = suit;
+  return rest;
+}
+
+async function readSuits() {
+  const suits = await suitsCollection.find({}).sort({ id: 1 }).toArray();
+  return suits.map(stripMongoId);
+}
+
+async function writeSuit(suit) {
+  await suitsCollection.updateOne({ id: suit.id }, { $set: suit }, { upsert: true });
 }
 
 function sendJson(res, status, payload) {
@@ -92,47 +140,45 @@ function cleanSuit(input, id) {
   };
 }
 
-function nextId(suits) {
-  const max = suits.reduce((highest, suit) => {
-    const num = Number(String(suit.id || "").replace(/\D/g, ""));
-    return Number.isFinite(num) ? Math.max(highest, num) : highest;
-  }, 0);
-  return `S${String(max + 1).padStart(3, "0")}`;
+async function nextId() {
+  const lastSuit = await suitsCollection
+    .find({ id: /^S\d+$/ })
+    .sort({ id: -1 })
+    .limit(1)
+    .next();
+  const num = lastSuit ? Number(String(lastSuit.id).replace(/\D/g, "")) : 0;
+  return `S${String(num + 1).padStart(3, "0")}`;
 }
 
 async function handleApi(req, res, url) {
-  const suits = readSuits();
-
   if (url.pathname === "/api/suits" && req.method === "GET") {
-    return sendJson(res, 200, suits);
+    return sendJson(res, 200, await readSuits());
   }
 
   if (url.pathname === "/api/suits" && req.method === "POST") {
     const body = await readBody(req);
-    const suit = cleanSuit(body, nextId(suits));
+    const suit = cleanSuit(body, await nextId());
     if (!suit.name) return sendJson(res, 400, { error: "Suit name is required." });
-    suits.push(suit);
-    writeSuits(suits);
+    await writeSuit(suit);
     return sendJson(res, 201, suit);
   }
 
   const match = url.pathname.match(/^\/api\/suits\/([^/]+)$/);
   if (match && req.method === "PUT") {
     const id = decodeURIComponent(match[1]);
-    const index = suits.findIndex(suit => suit.id === id);
-    if (index === -1) return sendJson(res, 404, { error: "Suit not found." });
+    const existing = await suitsCollection.findOne({ id });
+    if (!existing) return sendJson(res, 404, { error: "Suit not found." });
     const body = await readBody(req);
-    suits[index] = cleanSuit(body, id);
-    if (!suits[index].name) return sendJson(res, 400, { error: "Suit name is required." });
-    writeSuits(suits);
-    return sendJson(res, 200, suits[index]);
+    const suit = cleanSuit(body, id);
+    if (!suit.name) return sendJson(res, 400, { error: "Suit name is required." });
+    await writeSuit(suit);
+    return sendJson(res, 200, suit);
   }
 
   if (match && req.method === "DELETE") {
     const id = decodeURIComponent(match[1]);
-    const kept = suits.filter(suit => suit.id !== id);
-    if (kept.length === suits.length) return sendJson(res, 404, { error: "Suit not found." });
-    writeSuits(kept);
+    const result = await suitsCollection.deleteOne({ id });
+    if (result.deletedCount === 0) return sendJson(res, 404, { error: "Suit not found." });
     return sendJson(res, 200, { ok: true });
   }
 
@@ -160,19 +206,28 @@ function serveStatic(req, res, url) {
   });
 }
 
-ensureDataFile();
+async function start() {
+  await connectDatabase();
 
-http.createServer(async (req, res) => {
-  try {
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    if (url.pathname.startsWith("/api/")) {
-      await handleApi(req, res, url);
-    } else {
-      serveStatic(req, res, url);
+  http.createServer(async (req, res) => {
+    try {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      if (url.pathname.startsWith("/api/")) {
+        await handleApi(req, res, url);
+      } else {
+        serveStatic(req, res, url);
+      }
+    } catch (error) {
+      console.error(error);
+      sendJson(res, 500, { error: error.message || "Server error" });
     }
-  } catch (error) {
-    sendJson(res, 500, { error: error.message || "Server error" });
-  }
-}).listen(PORT, () => {
-  console.log(`SuitShop Pro running at http://localhost:${PORT}`);
+  }).listen(PORT, () => {
+    console.log(`SuitShop Pro running at http://localhost:${PORT}`);
+    console.log(`Using MongoDB database "${DB_NAME}" collection "${COLLECTION_NAME}".`);
+  });
+}
+
+start().catch(error => {
+  console.error("Failed to start server:", error);
+  process.exit(1);
 });
